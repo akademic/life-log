@@ -15,8 +15,9 @@ import (
 
 type Event struct {
 	gorm.Model
-	Title string
-	Files string
+	Title       string
+	Description string
+	Files       string
 }
 
 var db *gorm.DB
@@ -65,6 +66,7 @@ func listEvents(c echo.Context) error {
 
 func addEvent(c echo.Context) error {
 	title := c.FormValue("title")
+	title = title
 
 	// Multipart form
 	form, err := c.MultipartForm()
@@ -73,6 +75,7 @@ func addEvent(c echo.Context) error {
 	}
 
 	files := form.File["files"]
+	var file_paths []string
 
 	for _, file := range files {
 		src, err := file.Open()
@@ -87,7 +90,7 @@ func addEvent(c echo.Context) error {
 
 		hash := h.Sum(nil)
 
-		saveFile(src, hash)
+		file_paths = append(file_paths, saveFile(src, hash))
 
 		defer src.Close()
 	}
@@ -95,6 +98,6 @@ func addEvent(c echo.Context) error {
 	return c.String(http.StatusOK, "Add worked")
 }
 
-func saveFile(src multipart.File, hash []byte) {
-
+func saveFile(src multipart.File, hash []byte) string {
+	return "123"
 }
