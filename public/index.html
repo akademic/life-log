@@ -29,7 +29,7 @@
                 template: '<ul class="file-upload-title"><li v-for="name in files">{{ name }}</li></ul>',
             })
             Vue.component('file-upload', {
-                template: '<div><file-upload-title :files="files"></file-upload-title><input type="file" name="files[]" v-on:change="newFile" multiple></div>',
+                template: '<div><file-upload-title :files="files"></file-upload-title><input type="file" name="files" v-on:change="newFile" multiple></div>',
                 data: function() {
                     return {
                         files: []

@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"fmt"
 	rice "github.com/GeertJohan/go.rice"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
@@ -78,26 +79,26 @@ func addEvent(c echo.Context) error {
 	var file_paths []string
 
 	for _, file := range files {
-		src, err := file.Open()
-		if err != nil {
-			panic("fail reading file from form")
-		}
-
-		h := sha256.New()
-		if _, err := io.Copy(h, src); err != nil {
-			panic("fail coping file to hash")
-		}
-
-		hash := h.Sum(nil)
-
-		file_paths = append(file_paths, saveFile(src, hash))
-
-		defer src.Close()
+		file_paths = append(file_paths, saveFile(file))
 	}
 
 	return c.String(http.StatusOK, "Add worked")
 }
 
-func saveFile(src multipart.File, hash []byte) string {
-	return "123"
+func saveFile(file *multipart.FileHeader) string {
+	src, err := file.Open()
+	if err != nil {
+		panic("fail reading file from form")
+	}
+	defer src.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, src); err != nil {
+		panic("fail coping file to hash")
+	}
+
+	hash := h.Sum(nil)
+
+	fmt.Println(file.Filename)
+	return string(hash)
 }
