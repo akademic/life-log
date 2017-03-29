@@ -1,0 +1,59 @@
+<html>
+    <head>
+        <!--<script src="assets/js/vue.min.js"></script>-->
+        <script src="assets/js/vue.js"></script>
+    </head>
+    <body>
+
+        <form v-if="seen" method="POST" action="/events" id="form_add" enctype="multipart/form-data">
+            <label>
+                Название
+                <input name="title">
+            </label>
+            <label>
+                Описание
+                <textarea name="description"></textarea>
+            </label>
+            <label>
+                Файлы
+                <file-upload/>
+            </label>
+            <input type="submit"/>
+        </form>
+        <div id="test"><test :names="names"></test></div>
+
+        <script>
+
+            Vue.component('file-upload-title', {
+                props: ['files'],
+                template: '<ul class="file-upload-title"><li v-for="name in files">{{ name }}</li></ul>',
+            })
+            Vue.component('file-upload', {
+                template: '<div><file-upload-title :files="files"></file-upload-title><input type="file" name="files[]" v-on:change="newFile" multiple></div>',
+                data: function() {
+                    return {
+                        files: []
+                    }
+                },
+                methods: {
+                    newFile(e) {
+                        var files = e.target.files || e.dataTransfer.files
+                        if (!files.length) return;
+                        this.files = []
+                        for(i = 0; i < files.length; i++) {
+                            var file = files.item(i)
+                            this.files.push(file.name)
+                        }
+                    }
+                }
+            })
+
+            var add_form = new Vue({
+                el: '#form_add',
+                data: {
+                    seen: true
+                }
+            })
+        </script>
+    </body>
+</html>
