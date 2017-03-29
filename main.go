@@ -2,9 +2,11 @@ package main
 
 import (
 	"crypto/sha256"
+	rice "github.com/GeertJohan/go.rice"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -26,7 +28,13 @@ func main() {
 
 	e := echo.New()
 
-	e.GET("/", listEvents)
+	e.Use(middleware.Logger())
+
+	publicHandler := http.FileServer(rice.MustFindBox("public").HTTPBox())
+
+	e.GET("/", echo.WrapHandler(publicHandler))
+	e.GET("/assets/*", echo.WrapHandler(http.StripPrefix("/assets/", publicHandler)))
+
 	e.POST("/events", addEvent)
 
 	e.Logger.Fatal(e.Start(":1323"))
