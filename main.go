@@ -21,7 +21,14 @@ type Event struct {
 	gorm.Model
 	Title       string
 	Description string
-	Files       string
+	Files       []File
+}
+
+type File struct {
+	gorm.Model
+	Name        string
+	StoragePath string
+	EventID     uint
 }
 
 type Config struct {
@@ -66,12 +73,13 @@ func initData() {
 
 func initDb() {
 
-	db, err := gorm.Open("sqlite3", conf.Db_name)
+	var err error
+	db, err = gorm.Open("sqlite3", conf.Db_name)
 	if err != nil {
 		panic("failed to connect database")
 	}
 
-	db.AutoMigrate(&Event{})
+	db.AutoMigrate(&Event{}, &File{})
 }
 
 func listEvents(c echo.Context) error {
@@ -80,7 +88,7 @@ func listEvents(c echo.Context) error {
 
 func addEvent(c echo.Context) error {
 	title := c.FormValue("title")
-	title = title
+	desc := c.FormValue("description")
 
 	// Multipart form
 	form, err := c.MultipartForm()
@@ -89,27 +97,35 @@ func addEvent(c echo.Context) error {
 	}
 
 	files := form.File["files"]
-	var file_paths []string
+	var store_files []File
 
 	for _, file := range files {
-		path := saveFile(file)
-		file_paths = append(file_paths, path)
+		path, name := saveFile(file)
+		store_files = append(store_files, File{Name: name, StoragePath: path})
 	}
 
-	fmt.Println(file_paths)
+	fmt.Println(store_files)
+
+	event := &Event{
+		Title:       title,
+		Description: desc,
+		Files:       store_files,
+	}
+
+	fmt.Println(event)
+
+	db.Create(event)
 
 	return c.String(http.StatusOK, "Add worked")
 }
 
-func saveFile(file_header *multipart.FileHeader) string {
+func saveFile(file_header *multipart.FileHeader) (string, string) {
 
 	hpath, subdirs := getPathForSaving(file_header)
 
 	prepareSubdirs(subdirs)
 
 	full_hpath := path.Join(conf.Data_dir, hpath)
-
-	fmt.Println(full_hpath)
 
 	file, err := file_header.Open()
 	if err != nil {
@@ -119,13 +135,16 @@ func saveFile(file_header *multipart.FileHeader) string {
 	defer file.Close()
 
 	file_save, err := os.Create(full_hpath)
+	if err != nil {
+		panic("Open file for saving failed")
+	}
+	defer file_save.Close()
+
 	if _, err := io.Copy(file_save, file); err != nil {
 		panic("Save file failed")
 	}
-	file_save.Sync()
-	defer file_save.Close()
 
-	return hpath
+	return hpath, file_header.Filename
 }
 
 func prepareSubdirs(subdirs []string) string {
