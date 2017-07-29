@@ -91,8 +91,11 @@ func initDb() {
 func getEvent(c echo.Context) error {
 	id := c.Param("id")
 	var event Event
+	var files []File
 
 	db.First(&event, id)
+	db.Model(&event).Related(&files)
+	event.Files = files
 
 	return c.JSON(http.StatusOK, event)
 }
