@@ -4,7 +4,6 @@
         <script src="assets/js/vue.js"></script>
     </head>
     <body>
-
         <form v-if="seen" method="POST" action="/events" id="form_add" enctype="multipart/form-data">
             <label>
                 Название
@@ -20,7 +19,11 @@
             </label>
             <input type="submit"/>
         </form>
-        <div id="test"><test :names="names"></test></div>
+        <div id="events_list">
+            <div class="event" v-for="event in events">
+                <a v-bind:href="'/events/' + event.ID">{{ event.ID }} {{ event.Title }}</a>: {{ event.Description }}
+            </div>
+        </div>
 
         <script>
 
@@ -53,6 +56,25 @@
                 data: {
                     seen: true
                 }
+            })
+
+            var events_list = new Vue({
+                el: '#events_list',
+                data: {
+                    seen: true,
+                    events: []
+                },
+                created: function() {
+                    var th = this
+                    fetch('/events').then(function(resp) {
+                        return resp.json()
+                    }).then(function(resp) {
+                        resp.Events.forEach(function(item) {
+                            th.events.push(item)
+                        })
+                    })
+                }
+
             })
         </script>
     </body>

@@ -31,6 +31,10 @@ type File struct {
 	EventID     uint
 }
 
+type ResponseEventsList struct {
+	Events []Event
+}
+
 type Config struct {
 	Db_name  string
 	Data_dir string
@@ -58,6 +62,8 @@ func main() {
 	e.GET("/assets/*", echo.WrapHandler(http.StripPrefix("/assets/", publicHandler)))
 
 	e.POST("/events", addEvent)
+	e.GET("/events", listEvents)
+	e.GET("/events/:id", getEvent)
 
 	e.Logger.Fatal(e.Start(":1323"))
 }
@@ -82,8 +88,21 @@ func initDb() {
 	db.AutoMigrate(&Event{}, &File{})
 }
 
+func getEvent(c echo.Context) error {
+	id := c.Param("id")
+	var event Event
+
+	db.First(&event, id)
+
+	return c.JSON(http.StatusOK, event)
+}
+
 func listEvents(c echo.Context) error {
-	return c.String(http.StatusOK, "List events")
+	var events []Event
+	db.Order("id desc").Limit(10).Find(&events)
+
+	resp_events := ResponseEventsList{Events: events}
+	return c.JSON(http.StatusOK, resp_events)
 }
 
 func addEvent(c echo.Context) error {
