@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 )
 
@@ -64,6 +65,9 @@ func main() {
 	e.POST("/events", addEvent)
 	e.GET("/events", listEvents)
 	e.GET("/events/:id", getEvent)
+	e.PUT("/events/:id", updateEvent)
+	e.DELETE("/events/:id/files/:file_id", deleteFile)
+	e.POST("/events/:id/files", addFile)
 
 	e.Logger.Fatal(e.Start(":1323"))
 }
@@ -74,7 +78,6 @@ func initData() {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		os.Mkdir(path, mode)
 	}
-
 }
 
 func initDb() {
@@ -98,6 +101,26 @@ func getEvent(c echo.Context) error {
 	event.Files = files
 
 	return c.JSON(http.StatusOK, event)
+}
+
+func updateEvent(c echo.Context) error {
+	id := c.Param("id")
+	title := c.FormValue("title")
+	desc := c.FormValue("description")
+	var event Event
+
+	db.First(&event, id)
+
+	event.Title = title
+	event.Description = desc
+
+	db.Update(&event)
+
+	res := struct {
+		Result string
+	}{"ok"}
+
+	return c.JSON(http.StatusOK, res)
 }
 
 func listEvents(c echo.Context) error {
@@ -139,6 +162,49 @@ func addEvent(c echo.Context) error {
 	db.Create(event)
 
 	return c.String(http.StatusOK, "Add worked")
+}
+
+func deleteFile(c echo.Context) error {
+	id := c.Param("id")
+	file_id, err := strconv.Atoi(c.Param("file_id"))
+
+	if err != nil {
+		fail_res := struct{ Result string }{"error"}
+		return c.JSON(http.StatusOK, fail_res)
+	}
+
+	if file_id <= 0 {
+		fail_res := struct{ Result string }{"error"}
+		return c.JSON(http.StatusOK, fail_res)
+	}
+
+	var file File
+	db.Where("id = ? AND event_id = ? ", file_id, id).Find(&file)
+
+	db.Delete(&file)
+
+	ok_res := struct{ Result string }{"ok"}
+
+	return c.JSON(http.StatusOK, ok_res)
+}
+
+func addFile(c echo.Context) error {
+	id, _ := strconv.Atoi(c.Param("id"))
+
+	form, err := c.MultipartForm()
+	if err != nil {
+		return err
+	}
+
+	file := form.File["file"]
+
+	path, name := saveFile(file[0])
+
+	db_file := File{Name: name, StoragePath: path, EventID: uint(id)}
+
+	db.Create(&db_file)
+
+	return c.JSON(http.StatusOK, struct{ Result string }{"ok"})
 }
 
 func saveFile(file_header *multipart.FileHeader) (string, string) {
