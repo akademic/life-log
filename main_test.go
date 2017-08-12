@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"github.com/erikstmartin/go-testdb"
 	"github.com/jinzhu/gorm"
 
 	"github.com/labstack/echo"
 	"github.com/stretchr/testify/assert"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -46,7 +48,7 @@ func TestGetEvent(t *testing.T) {
 
 	setupDB()
 
-	sql := `SELECT * FROM "events"  WHERE "events"."deleted_at" IS NULL ORDER BY "events"."id" ASC LIMIT 1`
+	sql := `SELECT * FROM "events"  WHERE "events"."deleted_at" IS NULL AND (("events"."id" = ?)) ORDER BY "events"."id" ASC LIMIT 1`
 	columns := []string{"id", "title", "description"}
 	result := `
 			1,title2,desc2
@@ -63,6 +65,8 @@ func TestGetEvent(t *testing.T) {
 	req := httptest.NewRequest(echo.GET, "/events/1", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues("1")
 
 	if assert.NoError(t, getEvent(c)) {
 		assert.Equal(t, http.StatusOK, rec.Code)
@@ -87,11 +91,11 @@ test2
 Content-Disposition: form-data; name="files"; filename=""
 Content-Type: application/octet-stream
 
-
+1234
 ------WebKitFormBoundaryJMDX924v2WrPw8Wl--`)
 
 	e := echo.New()
-	req := httptest.NewRequest(echo.PUT, "/events/1", Body)
+	req := httptest.NewRequest(echo.POST, "/events", Body)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEMultipartForm+"; boundary=----WebKitFormBoundaryJMDX924v2WrPw8Wl")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
@@ -101,4 +105,86 @@ Content-Type: application/octet-stream
 		assert.Equal(t, "Add worked", rec.Body.String())
 	}
 
+}
+
+func TestUpdateEvent(t *testing.T) {
+	setupDB()
+
+	sql := `SELECT * FROM "events"  WHERE "events"."deleted_at" IS NULL ORDER BY "events"."id" ASC LIMIT 1`
+	columns := []string{"id", "title", "description"}
+	result := `
+			1,title2,desc2
+	`
+	testdb.StubQuery(sql, testdb.RowsFromCSVString(columns, result))
+
+	Body := strings.NewReader(`------WebKitFormBoundaryJMDX924v2WrPw8Wl
+Content-Disposition: form-data; name="title"
+
+test
+------WebKitFormBoundaryJMDX924v2WrPw8Wl
+Content-Disposition: form-data; name="description"
+
+test2
+------WebKitFormBoundaryJMDX924v2WrPw8Wl--`)
+
+	e := echo.New()
+	req := httptest.NewRequest(echo.PUT, "/events/1", Body)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEMultipartForm+"; boundary=----WebKitFormBoundaryJMDX924v2WrPw8Wl")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath("/events/:id")
+	c.SetParamNames("id")
+	c.SetParamValues("1")
+
+	if assert.NoError(t, updateEvent(c)) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, "{\"Result\":\"ok\"}", rec.Body.String())
+	}
+
+}
+
+func TestDeleteFile(t *testing.T) {
+	setupDB()
+
+	e := echo.New()
+	req := httptest.NewRequest(echo.DELETE, "/events/1/files/133", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath("/events/:id/files/:file_id")
+	c.SetParamNames("id", "file_id")
+	c.SetParamValues("1", "1")
+
+	if assert.NoError(t, deleteFile(c)) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, "{\"Result\":\"ok\"}", rec.Body.String())
+	}
+}
+
+func TestAddFile(t *testing.T) {
+	setupDB()
+
+	var b bytes.Buffer
+
+	mpw := multipart.NewWriter(&b)
+
+	fh, _ := mpw.CreateFormFile("file", "test_file.jpg")
+	fh.Write([]byte("1234"))
+	mpw.Close()
+
+	e := echo.New()
+	req := httptest.NewRequest(echo.POST, "/events/1/files", &b)
+	//req.Header.Set(echo.HeaderContentType, echo.MIMEMultipartForm+"; boundary=----WebKitFormBoundaryJMDX924v2WrPw8Wl")
+	req.Header.Set(echo.HeaderContentType, mpw.FormDataContentType())
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues("1")
+
+	conf = &Config{}
+	conf.Data_dir = "./data"
+
+	if assert.NoError(t, addFile(c)) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, "{\"Result\":\"ok\"}", rec.Body.String())
+	}
 }
