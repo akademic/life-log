@@ -114,7 +114,7 @@ func updateEvent(c echo.Context) error {
 	event.Title = title
 	event.Description = desc
 
-	db.Update(&event)
+	db.Save(&event)
 
 	res := struct {
 		Result string
